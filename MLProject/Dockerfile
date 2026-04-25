@@ -12,7 +12,9 @@ RUN pip install --no-cache-dir \
     matplotlib==3.9.0 \
     seaborn==0.13.2
 
+ 
 # Copy semua file project
-COPY MLProject/ /app/
-
+COPY . /app/
+ 
 CMD ["python", "modelling.py"]
+ 
