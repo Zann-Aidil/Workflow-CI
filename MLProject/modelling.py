@@ -86,7 +86,7 @@ def save_feature_importance(model, feature_names, path):
 # MAIN
 # ============================================================
 def train():
-    mlflow.set_experiment('Titanic_CI_Workflow')
+    # set_experiment dihapus — MLflow Project sudah handle otomatis
 
     X, y, feature_names = load_data(DATA_PATH)
     X_train, X_test, y_train, y_test = train_test_split(
@@ -94,7 +94,7 @@ def train():
     )
     print(f'Train: {len(X_train)} | Test: {len(X_test)}')
 
-    with mlflow.start_run():
+    with mlflow.start_run(nested=True):
 
         # Train
         model = RandomForestClassifier(
