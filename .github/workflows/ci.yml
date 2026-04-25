@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'MLProject/**'
-  workflow_dispatch:   # bisa jalan manual
+  workflow_dispatch:
 
 jobs:
   train-and-deploy:
@@ -46,7 +46,7 @@ jobs:
       # -------------------------------------------------------
       - name: Install Python dependencies
         run: |
-          pip install mlflow==2.19.0 pandas numpy scikit-learn matplotlib seaborn conda-lock
+          pip install mlflow==2.19.0 pandas numpy scikit-learn matplotlib seaborn
 
       # -------------------------------------------------------
       # 5. Run MLflow Project
@@ -68,15 +68,29 @@ jobs:
         run: |
           RUN_ID=$(python - <<'EOF'
           import mlflow, os
-          mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "mlruns"))
+
+          tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "mlruns")
+          mlflow.set_tracking_uri(tracking_uri)
           client = mlflow.MlflowClient()
-          exp = client.get_experiment_by_name("Titanic_CI_Workflow")
-          runs = client.search_runs(
-              experiment_ids=[exp.experiment_id],
-              order_by=["start_time DESC"],
-              max_results=1
-          )
-          print(runs[0].info.run_id)
+
+          # Ambil semua experiment
+          experiments = client.search_experiments()
+          all_runs = []
+          for exp in experiments:
+              runs = client.search_runs(
+                  experiment_ids=[exp.experiment_id],
+                  order_by=["start_time DESC"],
+                  max_results=1
+              )
+              if runs:
+                  all_runs.append(runs[0])
+
+          # Sort by start time, ambil yang terbaru
+          all_runs.sort(key=lambda r: r.info.start_time, reverse=True)
+          if all_runs:
+              print(all_runs[0].info.run_id)
+          else:
+              print("no-run-found")
           EOF
           )
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
@@ -94,10 +108,9 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Kumpulkan artefak dari mlruns
           mkdir -p saved_artifacts
-          find mlruns -name "*.png" -o -name "*.json" | xargs -I {} cp {} saved_artifacts/ 2>/dev/null || true
-          cp -r MLProject/artifacts/* saved_artifacts/ 2>/dev/null || true
+          find MLProject/artifacts -type f 2>/dev/null | xargs -I {} cp {} saved_artifacts/ || true
+          find mlruns -name "*.png" -o -name "*.json" 2>/dev/null | xargs -I {} cp {} saved_artifacts/ || true
 
           git add saved_artifacts/
           git diff --cached --quiet || git commit -m "ci: save model artifacts [run_id: ${{ steps.get_run.outputs.run_id }}]"
